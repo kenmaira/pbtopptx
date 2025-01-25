@@ -1,0 +1,36 @@
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+env/
+venv/
+
+# Secrets
+*.env
+
+# PowerPoint files
+*.pptx
+
+# Logs and debug files
+*.log
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# IDE/editor files
+.idea/
+.vscode/
+
+# Dependency directories
+.eggs/
+*.egg-info/
+dist/
+build/
+
+# Temporary files
+*.tmp
+*.swp
+*~

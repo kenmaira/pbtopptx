@@ -1,0 +1,12 @@
+{
+    "data": [
+        {
+            "feature": {
+                "id": "12345",
+                "name": "Example Feature",
+                "description": "This is an example description.",
+                "owner": { "email": "john.doe@example.com" }
+            }
+        }
+    ]
+}

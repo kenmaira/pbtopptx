@@ -34,6 +34,8 @@ A script to generate PowerPoint slides from Productboard release features.
 
 ## Usage
 
+Place your corporate template in the templates folder, with the text boxes & image boxes where you want them, using the masterslide in powerpoint.
+
 Run the script with:
 ```bash
 python pbtopptx.py <release_id> [--owner_email <email>]

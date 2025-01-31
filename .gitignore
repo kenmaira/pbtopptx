@@ -24,6 +24,9 @@ Thumbs.db
 .idea/
 .vscode/
 
+# Debugging scripts
+checklayout.py
+
 # Dependency directories
 .eggs/
 *.egg-info/

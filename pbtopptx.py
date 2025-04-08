@@ -221,7 +221,7 @@ def clean_html_and_format_text(description_html, text_frame):
                 p = text_frame.add_paragraph()
                 add_run(p, text, hyperlink=href)
 
-        elif element.name == "br":
+        elif element.name == "<br/>":
             # Line breaks (only add if not redundant)
             if text_frame.paragraphs and text_frame.paragraphs[-1].text.strip():
                 text_frame.add_paragraph()

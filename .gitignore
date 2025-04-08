@@ -26,12 +26,16 @@ Thumbs.db
 
 # Debugging scripts
 checklayout.py
+debug.zip
+debug/
+test*.py
 
 # Dependency directories
 .eggs/
 *.egg-info/
 dist/
 build/
+.venv
 
 # Temporary files
 *.tmp

@@ -366,14 +366,15 @@ def main():
 
     print("🔍 Retrieving all features...")
     all_features = get_all_paginated_features("https://api.productboard.com/features")
-    all_ids = set(f["id"] for f in all_features)
+    all_ids = [f["id"] for f in all_features]  # preserve order from API
 
     excluded_ids = set()
     for status_id in EXCLUDED_STATUS_IDS:
         print(f"🔎 Fetching excluded features with status {status_id}")
         excluded_ids |= get_feature_ids_by_status_id(status_id)
 
-    remaining_ids = list(all_ids - excluded_ids)
+    # Use list comprehension to keep order from all_features
+    remaining_ids = [fid for fid in all_ids if fid not in excluded_ids]
     print(f"🧳 Remaining features after exclusion: {len(remaining_ids)}")
 
     initiatives = get_all_paginated_features("https://api.productboard.com/initiatives")
@@ -431,6 +432,14 @@ def main():
                         })
             except Exception as e:
                 print(f"❌ Error fetching feature {fid}: {e}")
+
+    # Build an order mapping based on the original API order
+    order_map = {}
+    for i, f in enumerate(all_features):
+        order_map[f["id"]] = i
+
+    # Sort the features in the order they appeared in all_features
+    features.sort(key=lambda f: order_map.get(f["id"], 0))
 
     print(f"\n📊 Final features to generate slides for: {len(features)}")
     for f in features:

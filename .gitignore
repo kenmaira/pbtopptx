@@ -29,6 +29,7 @@ checklayout.py
 debug.zip
 debug/
 test*.py
+/templates/corporate_template.pptx
 
 # Dependency directories
 .eggs/

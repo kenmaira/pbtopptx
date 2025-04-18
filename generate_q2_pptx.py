@@ -20,6 +20,16 @@ PB_LINK_IDX = 11
 ID_IDX = 12
 REQUIREMENTS_IDX = 13
 
+INCLUDED_STATUS_IDS = [
+    #"402b0df5-1554-44bf-bcc4-8a11d3ca0a65",  # Candidate
+    "b944953f-2a93-4e85-b036-9bef92432588", #Planned
+    "d3dad2ee-2692-4e06-a29c-4ec314f807a0", #In Progress
+    "d6c9c0da-411a-41a9-8343-a8a5f75036e3", #EG.EG
+    "93d3820a-af3f-43e3-9122-32e302d7efd1", #Beta
+    "65a03095-72c0-42f2-952a-ab1c30abdae4", #Limited Release 
+    "88c3f59c-2cb0-4438-8840-d00f85fce6d1" # Released
+]
+
 EXCLUDED_STATUS_IDS = [
     "402b0df5-1554-44bf-bcc4-8a11d3ca0a65",  # Candidate
     "310a6c38-3719-4bff-a26c-b5d520ea1298",  # New Idea
@@ -133,75 +143,86 @@ def add_run(paragraph, text, bold=False, underline=False, hyperlink=None):
         run.hyperlink.address = hyperlink
 
 def clean_html_and_format_text(description_html, text_frame):
-    # Clears the text frame, then formats the HTML into paragraphs, lists, etc.
+    """Clears the text frame and formats HTML into PPT paragraphs,
+    fully supporting arbitrarily nested <ul>/<ol> lists."""
     
-    from pptx.util import Pt
-    text_frame.clear()
+    # 1) Clear out any existing paragraphs
+    while text_frame.paragraphs:
+        p = text_frame.paragraphs[-1]
+        for r in p.runs:
+            r._r.getparent().remove(r._r)
+        p._element.getparent().remove(p._element)
 
     soup = BeautifulSoup(description_html or "", "html.parser")
     if not soup.contents:
-        paragraph = text_frame.add_paragraph()
-        run = paragraph.add_run()
-        run.text = "The description is empty."
-        run.font.size = Pt(11)
-        run.font.name = "Avenir"
+        p = text_frame.add_paragraph()
+        add_run(p, "The description is empty.")
         return
 
-    for element in soup.contents:
-        if isinstance(element, NavigableString):
-            stripped = element.strip()
-            if stripped:
-                p = text_frame.add_paragraph()
-                add_run(p, stripped)
+    def render_list(list_tag, level=0):
+        ordered = (list_tag.name == "ol")
+        for idx, li in enumerate(list_tag.find_all("li", recursive=False), start=1):
+            # build the line text (skip nested lists)
+            line = ""
+            nested = []
+            for c in li.contents:
+                if isinstance(c, NavigableString):
+                    line += c.strip()
+                elif isinstance(c, Tag) and c.name not in ("ul", "ol"):
+                    line += c.get_text(strip=True)
+                elif isinstance(c, Tag) and c.name in ("ul","ol"):
+                    nested.append(c)
 
-        elif isinstance(element, Tag):
-            if element.name in ['h1', 'h2', 'h3', 'h4']:
+            # emit paragraph
+            p = text_frame.add_paragraph()
+            p.level = level
+            prefix = f"{idx}. " if ordered else "• "
+            add_run(p, prefix + line)
+
+            # recurse into each nested list
+            for nl in nested:
+                render_list(nl, level + 1)
+
+    # walk top‑level blocks
+    for block in soup.find_all(recursive=False):
+        if isinstance(block, NavigableString):
+            text = block.strip()
+            if text:
                 p = text_frame.add_paragraph()
-                add_run(p, element.get_text(strip=True), bold=True)
+                add_run(p, text)
+
+        elif isinstance(block, Tag):
+            if block.name in ("h1","h2","h3","h4"):
+                p = text_frame.add_paragraph()
+                add_run(p, block.get_text(strip=True), bold=True)
                 p.space_after = Pt(8)
 
-            elif element.name == 'p':
-                if not element.get_text(strip=True):
-                    continue
-                p = text_frame.add_paragraph()
-                for child in element.children:
-                    if isinstance(child, NavigableString):
-                        add_run(p, child.strip())
-                    elif child.name in ['strong', 'b']:
-                        add_run(p, child.get_text(strip=True), bold=True)
-                    elif child.name == 'a':
-                        href = child.get('href', '')
-                        link_text = child.get_text(strip=True)
-                        add_run(p, link_text, underline=True, hyperlink=href)
-                p.space_after = Pt(6)
-
-            elif element.name in ['ul', 'ol']:
-                is_ordered = element.name == 'ol'
-                for idx, li in enumerate(element.find_all('li', recursive=False), 1):
+            elif block.name == "p":
+                content = block.get_text(strip=True)
+                if content:
                     p = text_frame.add_paragraph()
-                    prefix = f"{idx}. " if is_ordered else "• "
-                    p.text = prefix
-                    for li_child in li.children:
-                        if isinstance(li_child, NavigableString):
-                            p.text += li_child.strip()
-                        elif li_child.name in ['strong', 'b']:
-                            add_run(p, li_child.get_text(strip=True), bold=True)
-                        elif li_child.name == 'a':
-                            href = li_child.get('href', '')
-                            link_text = li_child.get_text(strip=True)
-                            add_run(p, link_text, underline=True, hyperlink=href)
-                    p.space_after = Pt(4)
+                    for child in block.children:
+                        if isinstance(child, NavigableString):
+                            add_run(p, child.strip())
+                        elif child.name in ("strong","b"):
+                            add_run(p, child.get_text(strip=True), bold=True)
+                        elif child.name == "a":
+                            add_run(p,
+                                    child.get_text(strip=True),
+                                    underline=True,
+                                    hyperlink=child.get("href",""))
+                    p.space_after = Pt(6)
 
-            elif element.name == 'br':
-                continue
+            elif block.name in ("ul","ol"):
+                render_list(block, level=0)
 
-    # Remove truly empty paragraphs
-    for p in text_frame.paragraphs:
+    # strip empty paragraphs
+    for p in list(text_frame.paragraphs):
         if not p.text.strip():
-            el = p._element
-            el.getparent().remove(el)
+            e = p._element
+            e.getparent().remove(e)
 
-    print("✅ Finished formatting text")
+    print("✅ Finished formatting text (nested lists supported)")
 
 #################### DATA FETCH & FILTERING ####################
 
@@ -359,93 +380,98 @@ def create_pptx(features_data):
     prs.save(f"output_presentation_{timestamp}.pptx")
     print(f"✅ Presentation saved as output_presentation_{timestamp}.pptx")
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--owner_email", default=None, help="Filter by owner email")
     args = parser.parse_args()
 
-    print("🔍 Retrieving all features...")
+    # 1) Fetch only the statuses you care about
+    print("🔍 Fetching only specified statuses…")
+    feature_ids = set()
+    for status_id in INCLUDED_STATUS_IDS:
+        print(f"🔎 Fetching features with status {status_id}")
+        feature_ids |= get_feature_ids_by_status_id(status_id)
+
+    # 2) (Optional) preserve the API’s original ordering
+    print("📋 Retrieving all features to preserve order…")
     all_features = get_all_paginated_features("https://api.productboard.com/features")
-    all_ids = [f["id"] for f in all_features]  # preserve order from API
+    remaining_ids = [f["id"] for f in all_features if f["id"] in feature_ids]
+    print(f"✅ Will process {len(remaining_ids)} features\n")
 
-    excluded_ids = set()
-    for status_id in EXCLUDED_STATUS_IDS:
-        print(f"🔎 Fetching excluded features with status {status_id}")
-        excluded_ids |= get_feature_ids_by_status_id(status_id)
-
-    # Use list comprehension to keep order from all_features
-    remaining_ids = [fid for fid in all_ids if fid not in excluded_ids]
-    print(f"🧳 Remaining features after exclusion: {len(remaining_ids)}")
-
+    # 3) Build initiative lookups
+    print("📂 Fetching initiatives…")
     initiatives = get_all_paginated_features("https://api.productboard.com/initiatives")
     initiative_map = {i["id"]: i["name"] for i in initiatives}
+
+    print("🔗 Building feature→initiative map…")
     feature_to_initiative = {}
     for iid in initiative_map:
-        links = get_all_paginated_features(f"https://api.productboard.com/initiatives/{iid}/links/features")
+        links = get_all_paginated_features(
+            f"https://api.productboard.com/initiatives/{iid}/links/features"
+        )
         for link in links:
             fid = link.get("id")
             if fid:
                 feature_to_initiative[fid] = iid
 
+    # 4) Fetch full feature details in parallel, filter by timeframe + owner
     features = []
-    print("🧵 Fetching feature details in parallel...")
+    print("🧵 Fetching feature details in parallel…")
     with ThreadPoolExecutor(max_workers=20) as executor:
-        futures = {executor.submit(get_feature_details, fid): fid for fid in remaining_ids}
+        futures = {
+            executor.submit(get_feature_details, fid): fid
+            for fid in remaining_ids
+        }
         for future in as_completed(futures):
             fid = futures[future]
             try:
-                details = future.result()
-                data = details.get("data")
-                if not isinstance(data, dict):
-                    continue
-
-                tf = data.get("timeframe", {})
-                start = tf.get("startDate")
-                end = tf.get("endDate")
-                owner = data.get("owner") or {}
+                details = future.result().get("data", {})
+                tf = details.get("timeframe", {})
+                start, end = tf.get("startDate"), tf.get("endDate")
+                owner = details.get("owner") or {}
                 email = owner.get("email", "")
 
+                # Skip if no valid dates
                 if not (start and end):
                     continue
 
-                try:
-                    s_dt = datetime.fromisoformat(start)
-                    e_dt = datetime.fromisoformat(end)
-                except Exception:
-                    print(f"⚠️ Invalid date for feature {fid}: {start} - {end}")
+                s_dt = datetime.fromisoformat(start)
+                e_dt = datetime.fromisoformat(end)
+                if not (s_dt <= TIMEFRAME_END and e_dt >= TIMEFRAME_START):
                     continue
 
-                if s_dt <= TIMEFRAME_END and e_dt >= TIMEFRAME_START:
-                    if not args.owner_email or args.owner_email == email:
-                        req = get_requirements_link(fid)
-                        jira_key, jira_url = get_jira_details(fid)
-                        initiative = initiative_map.get(feature_to_initiative.get(fid), "Uncategorized")
-                        features.append({
-                            "id": fid,
-                            "title": data.get("name", ""),
-                            "description": data.get("description", ""),
-                            "requirements_link": req,
-                            "html_link": data.get("links", {}).get("html", ""),
-                            "initiative": initiative,
-                            "jira_key": jira_key,
-                            "jira_url": jira_url
-                        })
+                # Skip if owner_email filter is set
+                if args.owner_email and args.owner_email != email:
+                    continue
+
+                # Gather links
+                req_link = get_requirements_link(fid)
+                jira_key, jira_url = get_jira_details(fid)
+                initiative = initiative_map.get(
+                    feature_to_initiative.get(fid), "Uncategorized"
+                )
+
+                features.append({
+                    "id": fid,
+                    "title": details.get("name", ""),
+                    "description": details.get("description", ""),
+                    "requirements_link": req_link,
+                    "html_link": details.get("links", {}).get("html", ""),
+                    "initiative": initiative,
+                    "jira_key": jira_key,
+                    "jira_url": jira_url
+                })
+
             except Exception as e:
                 print(f"❌ Error fetching feature {fid}: {e}")
 
-    # Build an order mapping based on the original API order
-    order_map = {}
-    for i, f in enumerate(all_features):
-        order_map[f["id"]] = i
+    print(f"\n📊 Final features to generate slides for: {len(features)}\n")
 
-    # Sort the features in the order they appeared in all_features
-    features.sort(key=lambda f: order_map.get(f["id"], 0))
-
-    print(f"\n📊 Final features to generate slides for: {len(features)}")
-    for f in features:
-        print(f" - {f['title']} ({f['id']})")
-
+    # 5) Create the PPTX
     create_pptx(features)
+
 
 if __name__ == "__main__":
     main()
+

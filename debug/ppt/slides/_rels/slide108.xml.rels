@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes'?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://egnyte.productboard.com/entity-detail/features/7569e8f0-037a-4f04-8e30-a9df1074c2a5" TargetMode="External"/></Relationships>

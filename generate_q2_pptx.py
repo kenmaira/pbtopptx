@@ -6,7 +6,8 @@ from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 import keyring
-from bs4 import BeautifulSoup, NavigableString, Tag
+from bs4 import BeautifulSoup
+from bs4.element import NavigableString, Tag
 from PIL import Image
 from pptx import Presentation
 from pptx.util import Inches, Pt
@@ -46,8 +47,8 @@ HEADERS = {
     "authorization": f"Bearer {api_token}"
 }
 
-TIMEFRAME_START = datetime.fromisoformat("2025-04-01")
-TIMEFRAME_END = datetime.fromisoformat("2025-06-30")
+TIMEFRAME_START = datetime.fromisoformat("2025-07-01")
+TIMEFRAME_END = datetime.fromisoformat("2025-09-30")
 
 #################### IMAGE-HANDLING FUNCTIONS ####################
 
@@ -204,9 +205,9 @@ def clean_html_and_format_text(description_html, text_frame):
                     for child in block.children:
                         if isinstance(child, NavigableString):
                             add_run(p, child.strip())
-                        elif child.name in ("strong","b"):
+                        elif isinstance(child, Tag) and child.name in ("strong","b"):
                             add_run(p, child.get_text(strip=True), bold=True)
-                        elif child.name == "a":
+                        elif isinstance(child, Tag) and child.name == "a":
                             add_run(p,
                                     child.get_text(strip=True),
                                     underline=True,
